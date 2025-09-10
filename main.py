@@ -33,8 +33,8 @@ def webhook():
         # Extract the intent display name from the request
         intent_display_name = req['intentInfo']['displayName']
 
-        # Check if the intent is "Pricing and Membership"
-        if intent_display_name == 'Pricing and Membership':
+        # Check if the intent is "PricingMembershipIntent"
+        if intent_display_name == 'PricingMembershipIntent':
             # This is the correct JSON payload for the rich response card.
             rich_content_payload = {
                 "richContent": [
