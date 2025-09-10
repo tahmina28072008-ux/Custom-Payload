@@ -35,22 +35,19 @@ def webhook():
 
         # Check if the intent is "PricingMembershipIntent"
         if intent_display_name == 'PricingMembershipIntent':
-            # This is the correct JSON payload for the rich response card.
-            rich_content_payload = {
+            # This is the text message containing the card details
+            card_text_message = {
+                "text": {
+                    "text": [
+                        "Membership & Pricing\n\nChoose the plan that's right for you.\n\nWe offer a variety of flexible membership options. Our current special is 50% off a 12-month membership until 2026! Our most popular plan includes unlimited access to all facilities and classes."
+                    ]
+                }
+            }
+
+            # This is the chips payload
+            chips_payload = {
                 "richContent": [
                     [
-                        {
-                            "type": "info",
-                            "title": "Membership & Pricing",
-                            "subtitle": "Choose the plan that's right for you.",
-                            "text": "We offer a variety of flexible membership options. Our current special is 50% off a 12-month membership until 2026! Our most popular plan includes unlimited access to all facilities and classes.",
-                            "image": {
-                                "src": {
-                                    "rawUrl": "https://example.com/membership_image.png"
-                                }
-                            },
-                            "actionLink": "https://example.com/pricing"
-                        },
                         {
                             "type": "chips",
                             "options": [
@@ -66,7 +63,39 @@ def webhook():
                 ]
             }
 
-            # Build the fulfillment response with the rich content payload
+            # Build the fulfillment response with both messages
+            fulfillment_response = {
+                "fulfillmentResponse": {
+                    "messages": [
+                        card_text_message,
+                        {"payload": chips_payload}
+                    ]
+                }
+            }
+
+        elif intent_display_name == 'View Pricing Details':
+            # The JSON payload for the "View Pricing Details" rich response card.
+            rich_content_payload = {
+                "richContent": [
+                    [
+                        {
+                            "type": "info",
+                            "title": "Pricing Details",
+                            "subtitle": "Our flexible plans are designed to fit your lifestyle.",
+                            "text": "We offer a range of plans including monthly, 6-month, and 12-month memberships. All plans include unlimited access to our facilities and classes. Prices vary by location. Please contact us for a personalized quote.",
+                            "actionLink": "https://example.com/pricing"
+                        },
+                        {
+                            "type": "chips",
+                            "options": [
+                                {
+                                    "text": "Get a Quote"
+                                }
+                            ]
+                        }
+                    ]
+                ]
+            }
             fulfillment_response = {
                 "fulfillmentResponse": {
                     "messages": [
@@ -76,12 +105,23 @@ def webhook():
                     ]
                 }
             }
-        
-        # You can add more intents here if needed for other rich responses
-        # elif intent_display_name == 'View Pricing Details':
-        #     # Add logic for "View Pricing Details"
-        #     pass
 
+        elif intent_display_name == 'Get a Quote':
+            # The simple text response for the "Get a Quote" intent.
+            fulfillment_response = {
+                "fulfillmentResponse": {
+                    "messages": [
+                        {
+                            "text": {
+                                "text": [
+                                    "To get a personalized quote, please tell me your full name, email address, and a good time for a team member to contact you. Our team will be in touch within 24 hours to provide you with a tailored quote."
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        
     except KeyError as e:
         # Log the error if the intent info is missing
         print(f"Error: Missing key in request JSON - {e}")
