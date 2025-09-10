@@ -267,6 +267,63 @@ def webhook():
                 }
             }
         
+        elif intent_display_name == 'SubmitQuoteFormIntent':
+            # Get parameters from the Dialogflow request
+            parameters = req.get('sessionInfo', {}).get('parameters', {})
+            
+            user_name = parameters.get('name')
+            user_email = parameters.get('email_address')
+            user_time = parameters.get('contact_time')
+
+            try:
+                # Get a reference to the Firestore quotes collection
+                quotes_ref = db.collection('quotes')
+                
+                # Add a new document with the user's details and a timestamp
+                quotes_ref.add({
+                    'name': user_name,
+                    'email': user_email,
+                    'contact_time': user_time,
+                    'submission_timestamp': datetime.datetime.now()
+                })
+                
+                # Confirmation message for the user
+                confirmation_message = (
+                    f"Thank you, {user_name}! We have received your request.\n"
+                    f"A team member will be in touch with you at {user_time} at {user_email} to provide a tailored quote.\n"
+                    f"We look forward to speaking with you!"
+                )
+                
+                fulfillment_response = {
+                    "fulfillmentResponse": {
+                        "messages": [
+                            {
+                                "text": {
+                                    "text": [
+                                        confirmation_message
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                }
+            except Exception as e:
+                # Handle errors if the database write fails
+                logging.error(f"Error saving quote to Firestore: {e}")
+                fulfillment_response = {
+                    "fulfillmentResponse": {
+                        "messages": [
+                            {
+                                "text": {
+                                    "text": [
+                                        "Sorry, I encountered an issue while saving your information. Please try again later."
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                }
+        
     except KeyError as e:
         # Log the error if the intent info is missing
         print(f"Error: Missing key in request JSON - {e}")
