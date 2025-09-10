@@ -5,6 +5,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import logging
 import os
+import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -126,7 +127,7 @@ def webhook():
                 )
                 
                 if promotion.get('active'):
-                    pricing_info += f"   - Promotion: {promotion.get('description', '50% off for rest of the year')}\n\n"
+                    pricing_info += f"   - Promotion: {promotion.get('description', 'N/A')} ({promotion.get('condition', 'N/A')})\n\n"
                 else:
                     pricing_info += "\n"
 
@@ -161,6 +162,9 @@ def webhook():
                             "options": [
                                 {
                                     "text": "Get a Quote"
+                                },
+                                {
+                                    "text": "Join now"
                                 }
                             ]
                         }
@@ -177,6 +181,75 @@ def webhook():
                     ]
                 }
             }
+        
+        elif intent_display_name == 'JoinNowIntent':
+            db = firestore.client()
+            doc_ref = db.collection('gyms').document('covent-garden-fitness-wellbeing-gym')
+            doc = doc_ref.get()
+            
+            if doc.exists:
+                data = doc.to_dict()
+                
+                anytime_prices = data.get('membership', {}).get('anytime', {})
+                twelve_month = anytime_prices.get('12MonthCommitment', {})
+                
+                activation_fee = 29.00
+                monthly_remainder = 31.85
+                today_total = activation_fee + monthly_remainder
+
+                today_date = datetime.date.today()
+                
+                today_day = today_date.strftime("%#d" if os.name == 'nt' else "%-d") # To remove leading zero on day
+                today_month = today_date.strftime("%B")
+                next_month = (today_date.replace(day=28) + datetime.timedelta(days=4)).strftime("%B")
+
+                join_details_text = (
+                    f"We've defaulted the start date to the first available date you can join this gym:\n"
+                    f"{today_day} {today_month}\n\n"
+                    f"Activation Fee:\n"
+                    f"£{activation_fee:.2f}\n"
+                    f"For the remainder of this month:\n"
+                    f"£{monthly_remainder:.2f}\n"
+                    f"Monthly direct debit(Starting 1st {next_month} 2025)\n"
+                    f"£{twelve_month.get('originalPrice', 'N/A'):.2f}\n"
+                    f"£{twelve_month.get('discountPrice', 'N/A'):.2f}\n"
+                    f"-50% promotional discount\n"
+                    f"(Just £{twelve_month.get('discountPrice', 'N/A'):.2f} per month for 3 months, then "
+                    f"£{twelve_month.get('originalPrice', 'N/A'):.2f} per month from 1 January 2026)\n"
+                    f"To pay today:\n"
+                    f"This one-off upfront charge allows you to start your membership before your Direct Debit payments begin on 1st {next_month} 2025.\n"
+                    f"£{today_total:.2f}"
+                )
+                
+                card_text_message = {
+                    "text": {
+                        "text": [
+                            join_details_text
+                        ]
+                    }
+                }
+                
+                fulfillment_response = {
+                    "fulfillmentResponse": {
+                        "messages": [
+                            card_text_message
+                        ]
+                    }
+                }
+            else:
+                fulfillment_response = {
+                    "fulfillmentResponse": {
+                        "messages": [
+                            {
+                                "text": {
+                                    "text": [
+                                        "Sorry, I could not find details to join this gym."
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                }
 
         elif intent_display_name == 'GetQuoteIntent':
             # The simple text response for the "Get a Quote" intent.
