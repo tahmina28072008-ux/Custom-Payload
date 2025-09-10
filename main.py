@@ -123,7 +123,14 @@ def webhook():
                     f"   - Commitment: {twelve_month.get('commitment', 'N/A')}\n"
                     f"   - Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('discountPrice', 'N/A')} per {twelve_month.get('period', 'month')}\n"
                     f"   - Original Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('originalPrice', 'N/A')}\n"
-                    f"   - Promotion: {promotion.get('description', 'N/A')} ({promotion.get('condition', 'N/A')})\n\n"
+                )
+                
+                if promotion.get('active'):
+                    pricing_info += f"   - Promotion: {promotion.get('description', '50% off for rest of the year')}\n\n"
+                else:
+                    pricing_info += "\n"
+
+                pricing_info += (
                     f"2. 1-Month Rolling Plan\n"
                     f"   - Commitment: {one_month_rolling.get('commitment', 'N/A')}\n"
                     f"   - Price: {one_month_rolling.get('currency', 'GBP')} {one_month_rolling.get('price', 'N/A')} per {one_month_rolling.get('period', 'month')}\n\n"
