@@ -73,18 +73,19 @@ def webhook():
                 }
             }
 
-        elif intent_display_name == 'View Pricing Details':
-            # The JSON payload for the "View Pricing Details" rich response card.
-            rich_content_payload = {
+        elif intent_display_name == 'ViewPricingIntent':
+            # This is the text message containing the card details
+            card_text_message = {
+                "text": {
+                    "text": [
+                        "Pricing Details\n\nOur flexible plans are designed to fit your lifestyle.\n\nWe offer a range of plans including monthly, 6-month, and 12-month memberships. All plans include unlimited access to our facilities and classes. Prices vary by location. Please contact us for a personalized quote."
+                    ]
+                }
+            }
+            # This is the chips payload
+            chips_payload = {
                 "richContent": [
                     [
-                        {
-                            "type": "info",
-                            "title": "Pricing Details",
-                            "subtitle": "Our flexible plans are designed to fit your lifestyle.",
-                            "text": "We offer a range of plans including monthly, 6-month, and 12-month memberships. All plans include unlimited access to our facilities and classes. Prices vary by location. Please contact us for a personalized quote.",
-                            "actionLink": "https://example.com/pricing"
-                        },
                         {
                             "type": "chips",
                             "options": [
@@ -96,17 +97,18 @@ def webhook():
                     ]
                 ]
             }
+
+            # Build the fulfillment response with both messages
             fulfillment_response = {
                 "fulfillmentResponse": {
                     "messages": [
-                        {
-                            "payload": rich_content_payload
-                        }
+                        card_text_message,
+                        {"payload": chips_payload}
                     ]
                 }
             }
 
-        elif intent_display_name == 'Get a Quote':
+        elif intent_display_name == 'GetQuoteIntent':
             # The simple text response for the "Get a Quote" intent.
             fulfillment_response = {
                 "fulfillmentResponse": {
