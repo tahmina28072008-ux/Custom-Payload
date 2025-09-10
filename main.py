@@ -105,50 +105,58 @@ def webhook():
         elif intent_display_name == 'ViewPricingIntent':
             # This is the text message containing the card details
             
-            db = firestore.client()
-            doc_ref = db.collection('gyms').document('covent-garden-fitness-wellbeing-gym')
-            doc = doc_ref.get()
+            if db is not None:
+                doc_ref = db.collection('gyms').document('covent-garden-fitness-wellbeing-gym')
+                doc = doc_ref.get()
 
-            if doc.exists:
-                data = doc.to_dict()
-                
-                anytime_prices = data.get('membership', {}).get('anytime', {})
-                twelve_month = anytime_prices.get('12MonthCommitment', {})
-                one_month_rolling = anytime_prices.get('1MonthRolling', {})
-                promotion = anytime_prices.get('promotion', {})
+                if doc.exists:
+                    data = doc.to_dict()
+                    
+                    anytime_prices = data.get('membership', {}).get('anytime', {})
+                    twelve_month = anytime_prices.get('12MonthCommitment', {})
+                    one_month_rolling = anytime_prices.get('1MonthRolling', {})
+                    promotion = anytime_prices.get('promotion', {})
 
-                pricing_info = (
-                    f"Pricing Details for {data.get('name', 'this gym')}\n\n"
-                    f"Our flexible plans are designed to fit your lifestyle.\n\n"
-                    f"1. 12-Month Commitment Plan\n"
-                    f"   - Commitment: {twelve_month.get('commitment', 'N/A')}\n"
-                    f"   - Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('discountPrice', 'N/A')} per {twelve_month.get('period', 'month')}\n"
-                    f"   - Original Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('originalPrice', 'N/A')}\n"
-                )
-                
-                if promotion.get('active'):
-                    pricing_info += f"   - Promotion: {promotion.get('description', 'N/A')} ({promotion.get('condition', 'N/A')})\n\n"
-                else:
-                    pricing_info += "\n"
+                    pricing_info = (
+                        f"Pricing Details for {data.get('name', 'this gym')}\n\n"
+                        f"Our flexible plans are designed to fit your lifestyle.\n\n"
+                        f"1. 12-Month Commitment Plan\n"
+                        f"   - Commitment: {twelve_month.get('commitment', 'N/A')}\n"
+                        f"   - Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('discountPrice', 'N/A')} per {twelve_month.get('period', 'month')}\n"
+                        f"   - Original Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('originalPrice', 'N/A')}\n"
+                    )
+                    
+                    if promotion.get('active'):
+                        pricing_info += f"   - Promotion: {promotion.get('description', 'N/A')} ({promotion.get('condition', 'N/A')})\n\n"
+                    else:
+                        pricing_info += "\n"
 
-                pricing_info += (
-                    f"2. 1-Month Rolling Plan\n"
-                    f"   - Commitment: {one_month_rolling.get('commitment', 'N/A')}\n"
-                    f"   - Price: {one_month_rolling.get('currency', 'GBP')} {one_month_rolling.get('price', 'N/A')} per {one_month_rolling.get('period', 'month')}\n\n"
-                )
-                
-                card_text_message = {
-                    "text": {
-                        "text": [
-                            pricing_info
-                        ]
+                    pricing_info += (
+                        f"2. 1-Month Rolling Plan\n"
+                        f"   - Commitment: {one_month_rolling.get('commitment', 'N/A')}\n"
+                        f"   - Price: {one_month_rolling.get('currency', 'GBP')} {one_month_rolling.get('price', 'N/A')} per {one_month_rolling.get('period', 'month')}\n\n"
+                    )
+                    
+                    card_text_message = {
+                        "text": {
+                            "text": [
+                                pricing_info
+                            ]
+                        }
                     }
-                }
+                else:
+                    card_text_message = {
+                        "text": {
+                            "text": [
+                                "Sorry, I could not find pricing details for this gym."
+                            ]
+                        }
+                    }
             else:
                 card_text_message = {
                     "text": {
                         "text": [
-                            "Sorry, I could not find pricing details for this gym."
+                            "Sorry, the database is not connected. I cannot provide pricing details at this time."
                         ]
                     }
                 }
@@ -183,59 +191,73 @@ def webhook():
             }
         
         elif intent_display_name == 'JoinNowIntent':
-            db = firestore.client()
-            doc_ref = db.collection('gyms').document('covent-garden-fitness-wellbeing-gym')
-            doc = doc_ref.get()
-            
-            if doc.exists:
-                data = doc.to_dict()
+            if db is not None:
+                doc_ref = db.collection('gyms').document('covent-garden-fitness-wellbeing-gym')
+                doc = doc_ref.get()
                 
-                anytime_prices = data.get('membership', {}).get('anytime', {})
-                twelve_month = anytime_prices.get('12MonthCommitment', {})
-                
-                activation_fee = 29.00
-                monthly_remainder = 31.85
-                today_total = activation_fee + monthly_remainder
+                if doc.exists:
+                    data = doc.to_dict()
+                    
+                    anytime_prices = data.get('membership', {}).get('anytime', {})
+                    twelve_month = anytime_prices.get('12MonthCommitment', {})
+                    
+                    activation_fee = 29.00
+                    monthly_remainder = 31.85
+                    today_total = activation_fee + monthly_remainder
 
-                today_date = datetime.date.today()
-                
-                today_day = today_date.strftime("%#d" if os.name == 'nt' else "%-d") # To remove leading zero on day
-                today_month = today_date.strftime("%B")
-                next_month = (today_date.replace(day=28) + datetime.timedelta(days=4)).strftime("%B")
+                    today_date = datetime.date.today()
+                    
+                    today_day = today_date.strftime("%#d" if os.name == 'nt' else "%-d") # To remove leading zero on day
+                    today_month = today_date.strftime("%B")
+                    next_month = (today_date.replace(day=28) + datetime.timedelta(days=4)).strftime("%B")
 
-                join_details_text = (
-                    f"We've defaulted the start date to the first available date you can join this gym:\n"
-                    f"{today_day} {today_month}\n\n"
-                    f"Activation Fee:\n"
-                    f"£{activation_fee:.2f}\n"
-                    f"For the remainder of this month:\n"
-                    f"£{monthly_remainder:.2f}\n"
-                    f"Monthly direct debit(Starting 1st {next_month} 2025)\n"
-                    f"£{twelve_month.get('originalPrice', 'N/A'):.2f}\n"
-                    f"£{twelve_month.get('discountPrice', 'N/A'):.2f}\n"
-                    f"-50% promotional discount\n"
-                    f"(Just £{twelve_month.get('discountPrice', 'N/A'):.2f} per month for 3 months, then "
-                    f"£{twelve_month.get('originalPrice', 'N/A'):.2f} per month from 1 January 2026)\n"
-                    f"To pay today:\n"
-                    f"This one-off upfront charge allows you to start your membership before your Direct Debit payments begin on 1st {next_month} 2025.\n"
-                    f"£{today_total:.2f}"
-                )
-                
-                card_text_message = {
-                    "text": {
-                        "text": [
-                            join_details_text
-                        ]
+                    join_details_text = (
+                        f"We've defaulted the start date to the first available date you can join this gym:\n"
+                        f"{today_day} {today_month}\n\n"
+                        f"Activation Fee:\n"
+                        f"£{activation_fee:.2f}\n"
+                        f"For the remainder of this month:\n"
+                        f"£{monthly_remainder:.2f}\n"
+                        f"Monthly direct debit(Starting 1st {next_month} 2025)\n"
+                        f"£{twelve_month.get('originalPrice', 'N/A'):.2f}\n"
+                        f"£{twelve_month.get('discountPrice', 'N/A'):.2f}\n"
+                        f"-50% promotional discount\n"
+                        f"(Just £{twelve_month.get('discountPrice', 'N/A'):.2f} per month for 3 months, then "
+                        f"£{twelve_month.get('originalPrice', 'N/A'):.2f} per month from 1 January 2026)\n"
+                        f"To pay today:\n"
+                        f"This one-off upfront charge allows you to start your membership before your Direct Debit payments begin on 1st {next_month} 2025.\n"
+                        f"£{today_total:.2f}"
+                    )
+                    
+                    card_text_message = {
+                        "text": {
+                            "text": [
+                                join_details_text
+                            ]
+                        }
                     }
-                }
-                
-                fulfillment_response = {
-                    "fulfillmentResponse": {
-                        "messages": [
-                            card_text_message
-                        ]
+                    
+                    fulfillment_response = {
+                        "fulfillmentResponse": {
+                            "messages": [
+                                card_text_message
+                            ]
+                        }
                     }
-                }
+                else:
+                    fulfillment_response = {
+                        "fulfillmentResponse": {
+                            "messages": [
+                                {
+                                    "text": {
+                                        "text": [
+                                            "Sorry, I could not find details to join this gym."
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
             else:
                 fulfillment_response = {
                     "fulfillmentResponse": {
@@ -243,7 +265,7 @@ def webhook():
                             {
                                 "text": {
                                     "text": [
-                                        "Sorry, I could not find details to join this gym."
+                                        "Sorry, the database is not connected. I cannot provide details to join at this time."
                                     ]
                                 }
                             }
@@ -275,48 +297,63 @@ def webhook():
             user_email = parameters.get('email_address')
             user_time = parameters.get('contact_time')
 
-            try:
-                # Get a reference to the Firestore quotes collection
-                quotes_ref = db.collection('quotes')
-                
-                # Add a new document with the user's details and a timestamp
-                quotes_ref.add({
-                    'name': user_name,
-                    'email': user_email,
-                    'contact_time': user_time,
-                    'submission_timestamp': datetime.datetime.now()
-                })
-                
-                # Confirmation message for the user
-                confirmation_message = (
-                    f"Thank you, {user_name}! We have received your request.\n"
-                    f"A team member will be in touch with you at {user_time} at {user_email} to provide a tailored quote.\n"
-                    f"We look forward to speaking with you!"
-                )
-                
-                fulfillment_response = {
-                    "fulfillmentResponse": {
-                        "messages": [
-                            {
-                                "text": {
-                                    "text": [
-                                        confirmation_message
-                                    ]
+            if db is not None:
+                try:
+                    # Get a reference to the Firestore quotes collection
+                    quotes_ref = db.collection('quotes')
+                    
+                    # Add a new document with the user's details and a timestamp
+                    quotes_ref.add({
+                        'name': user_name,
+                        'email': user_email,
+                        'contact_time': user_time,
+                        'submission_timestamp': datetime.datetime.now()
+                    })
+                    
+                    # Confirmation message for the user
+                    confirmation_message = (
+                        f"Thank you, {user_name}! We have received your request.\n"
+                        f"A team member will be in touch with you at {user_time} at {user_email} to provide a tailored quote.\n"
+                        f"We look forward to speaking with you!"
+                    )
+                    
+                    fulfillment_response = {
+                        "fulfillmentResponse": {
+                            "messages": [
+                                {
+                                    "text": {
+                                        "text": [
+                                            confirmation_message
+                                        ]
+                                    }
                                 }
-                            }
-                        ]
+                            ]
+                        }
                     }
-                }
-            except Exception as e:
-                # Handle errors if the database write fails
-                logging.error(f"Error saving quote to Firestore: {e}")
+                except Exception as e:
+                    # Handle errors if the database write fails
+                    logging.error(f"Error saving quote to Firestore: {e}")
+                    fulfillment_response = {
+                        "fulfillmentResponse": {
+                            "messages": [
+                                {
+                                    "text": {
+                                        "text": [
+                                            "Sorry, I encountered an issue while saving your information. Please try again later."
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+            else:
                 fulfillment_response = {
                     "fulfillmentResponse": {
                         "messages": [
                             {
                                 "text": {
                                     "text": [
-                                        "Sorry, I encountered an issue while saving your information. Please try again later."
+                                        "Sorry, the database is not connected. I cannot save your information at this time."
                                     ]
                                 }
                             }
