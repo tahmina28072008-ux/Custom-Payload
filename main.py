@@ -1,10 +1,10 @@
-# webhook.py
-
+import json
+import os
+import requests
 from flask import Flask, request, jsonify
 import firebase_admin
 from firebase_admin import credentials, firestore
 import logging
-import os
 import datetime
 
 # Configure logging
@@ -47,6 +47,21 @@ def webhook():
         }
     }
 
+    # Chips to display at the end of the flow
+    final_chips_payload = {
+        "richContent": [
+            [
+                {
+                    "type": "chips",
+                    "options": [
+                        {"text": "Feedback"},
+                        {"text": "Recommendation"}
+                    ]
+                }
+            ]
+        ]
+    }
+
     try:
         # Extract intent (if present) and session parameters
         intent_display_name = req.get("intentInfo", {}).get("displayName")
@@ -85,6 +100,7 @@ def webhook():
 
         # --- ViewPricingIntent ---
         elif intent_display_name == 'ViewPricingIntent':
+            card_text_message = {"text": {"text": ["Sorry, I could not find pricing details for this gym."]}}
             if db is not None:
                 doc_ref = db.collection('gyms').document('covent-garden-fitness-wellbeing-gym')
                 doc = doc_ref.get()
@@ -99,19 +115,19 @@ def webhook():
                         f"Pricing Details for {data.get('name', 'this gym')}\n\n"
                         "Our flexible plans are designed to fit your lifestyle.\n\n"
                         "1. 12-Month Commitment Plan\n"
-                        f"    - Commitment: {twelve_month.get('commitment', 'N/A')}\n"
-                        f"    - Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('discountPrice', 'N/A')} per {twelve_month.get('period', 'month')}\n"
-                        f"    - Original Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('originalPrice', 'N/A')}\n"
+                        f"   - Commitment: {twelve_month.get('commitment', 'N/A')}\n"
+                        f"   - Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('discountPrice', 'N/A')} per {twelve_month.get('period', 'month')}\n"
+                        f"   - Original Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('originalPrice', 'N/A')}\n"
                     )
                     if promotion.get('active'):
-                        pricing_info += f"    - Promotion: {promotion.get('description', 'N/A')} ({promotion.get('condition', 'N/A')})\n\n"
+                        pricing_info += f"   - Promotion: {promotion.get('description', 'N/A')} ({promotion.get('condition', 'N/A')})\n\n"
                     else:
                         pricing_info += "\n"
 
                     pricing_info += (
                         "2. 1-Month Rolling Plan\n"
-                        f"    - Commitment: {one_month_rolling.get('commitment', 'N/A')}\n"
-                        f"    - Price: {one_month_rolling.get('currency', 'GBP')} {one_month_rolling.get('price', 'N/A')} per {one_month_rolling.get('period', 'month')}\n\n"
+                        f"   - Commitment: {one_month_rolling.get('commitment', 'N/A')}\n"
+                        f"   - Price: {one_month_rolling.get('currency', 'GBP')} {one_month_rolling.get('price', 'N/A')} per {one_month_rolling.get('period', 'month')}\n\n"
                     )
                     card_text_message = {"text": {"text": [pricing_info]}}
                 else:
@@ -119,7 +135,8 @@ def webhook():
             else:
                 card_text_message = {"text": {"text": ["Sorry, the database is not connected. I cannot provide pricing details at this time."]}}
 
-            chips_payload = {
+            # Add the final chips to the response
+            final_chips = {
                 "richContent": [
                     [
                         {
@@ -132,10 +149,12 @@ def webhook():
                     ]
                 ]
             }
-            fulfillment_response = {"fulfillmentResponse": {"messages": [card_text_message, {"payload": chips_payload}]}}
+            fulfillment_response = {"fulfillmentResponse": {"messages": [card_text_message, {"payload": final_chips}, {"payload": final_chips_payload}]}}
+
 
         # --- JoinNowIntent ---
         elif intent_display_name == 'JoinNowIntent':
+            card_text_message = {"text": {"text": ["Sorry, I could not find details to join this gym."]}}
             if db is not None:
                 doc_ref = db.collection('gyms').document('covent-garden-fitness-wellbeing-gym')
                 doc = doc_ref.get()
@@ -167,11 +186,10 @@ def webhook():
                         f"To pay today:\n£{today_total:.2f}"
                     )
                     card_text_message = {"text": {"text": [join_details_text]}}
-                    fulfillment_response = {"fulfillmentResponse": {"messages": [card_text_message]}}
-                else:
-                    fulfillment_response = {"fulfillmentResponse": {"messages": [{"text": {"text": ["Sorry, I could not find details to join this gym."]}}]}}
             else:
-                fulfillment_response = {"fulfillmentResponse": {"messages": [{"text": {"text": ["Sorry, the database is not connected. I cannot provide details to join at this time."]}}]}}
+                card_text_message = {"text": {"text": ["Sorry, the database is not connected. I cannot provide details to join at this time."]}}
+
+            fulfillment_response = {"fulfillmentResponse": {"messages": [card_text_message, {"payload": final_chips_payload}]}}
 
         # --- GetQuoteIntent ---
         elif intent_display_name == 'GetQuoteIntent':
@@ -187,18 +205,17 @@ def webhook():
         elif intent_display_name == 'SubmitQuoteFormIntent' or (
             parameters.get("name") and parameters.get("email_address") and parameters.get("contact_time")
         ):
-            # Extract the string values from the nested parameter objects
-            user_name_dict = parameters.get('name', {})
-            user_name = user_name_dict.get('original')
-            
-            user_email = parameters.get('email_address')
-            
-            user_time_dict = parameters.get('contact_time', {})
-            # Format the time as a human-readable string (e.g., "16:00")
-            user_time = f"{int(user_time_dict.get('hours', 0))}:{int(user_time_dict.get('minutes', 0)):02d}"
-
+            confirmation_message = "Sorry, I encountered an issue while saving your information. Please try again later."
             if db is not None:
                 try:
+                    user_name_dict = parameters.get('name', {})
+                    user_name = user_name_dict.get('original')
+                    
+                    user_email = parameters.get('email_address')
+                    
+                    user_time_dict = parameters.get('contact_time', {})
+                    user_time = f"{int(user_time_dict.get('hours', 0))}:{int(user_time_dict.get('minutes', 0)):02d}"
+
                     db.collection('quotes').add({
                         'name': user_name,
                         'email': user_email,
@@ -210,13 +227,13 @@ def webhook():
                         f"A team member will be in touch with you at {user_time} at {user_email} to provide a tailored quote.\n"
                         f"We look forward to speaking with you!"
                     )
-                    fulfillment_response = {"fulfillmentResponse": {"messages": [{"text": {"text": [confirmation_message]}}]}}
                 except Exception as e:
                     logging.error(f"Error saving quote to Firestore: {e}")
-                    fulfillment_response = {"fulfillmentResponse": {"messages": [{"text": {"text": ["Sorry, I encountered an issue while saving your information. Please try again later."]}}]}}
             else:
-                fulfillment_response = {"fulfillmentResponse": {"messages": [{"text": {"text": ["Sorry, the database is not connected. I cannot save your information at this time."]}}]}}
+                confirmation_message = "Sorry, the database is not connected. I cannot save your information at this time."
 
+            fulfillment_response = {"fulfillmentResponse": {"messages": [{"text": {"text": [confirmation_message]}}, {"payload": final_chips_payload}]}}
+    
     except Exception as e:
         logging.error(f"Webhook error: {e}")
 
