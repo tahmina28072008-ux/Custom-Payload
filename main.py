@@ -1,3 +1,5 @@
+# webhook.py
+
 from flask import Flask, request, jsonify
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -97,19 +99,19 @@ def webhook():
                         f"Pricing Details for {data.get('name', 'this gym')}\n\n"
                         "Our flexible plans are designed to fit your lifestyle.\n\n"
                         "1. 12-Month Commitment Plan\n"
-                        f"   - Commitment: {twelve_month.get('commitment', 'N/A')}\n"
-                        f"   - Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('discountPrice', 'N/A')} per {twelve_month.get('period', 'month')}\n"
-                        f"   - Original Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('originalPrice', 'N/A')}\n"
+                        f"    - Commitment: {twelve_month.get('commitment', 'N/A')}\n"
+                        f"    - Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('discountPrice', 'N/A')} per {twelve_month.get('period', 'month')}\n"
+                        f"    - Original Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('originalPrice', 'N/A')}\n"
                     )
                     if promotion.get('active'):
-                        pricing_info += f"   - Promotion: {promotion.get('description', 'N/A')} ({promotion.get('condition', 'N/A')})\n\n"
+                        pricing_info += f"    - Promotion: {promotion.get('description', 'N/A')} ({promotion.get('condition', 'N/A')})\n\n"
                     else:
                         pricing_info += "\n"
 
                     pricing_info += (
                         "2. 1-Month Rolling Plan\n"
-                        f"   - Commitment: {one_month_rolling.get('commitment', 'N/A')}\n"
-                        f"   - Price: {one_month_rolling.get('currency', 'GBP')} {one_month_rolling.get('price', 'N/A')} per {one_month_rolling.get('period', 'month')}\n\n"
+                        f"    - Commitment: {one_month_rolling.get('commitment', 'N/A')}\n"
+                        f"    - Price: {one_month_rolling.get('currency', 'GBP')} {one_month_rolling.get('price', 'N/A')} per {one_month_rolling.get('period', 'month')}\n\n"
                     )
                     card_text_message = {"text": {"text": [pricing_info]}}
                 else:
@@ -185,9 +187,15 @@ def webhook():
         elif intent_display_name == 'SubmitQuoteFormIntent' or (
             parameters.get("name") and parameters.get("email_address") and parameters.get("contact_time")
         ):
-            user_name = parameters.get('name')
+            # Extract the string values from the nested parameter objects
+            user_name_dict = parameters.get('name', {})
+            user_name = user_name_dict.get('original')
+            
             user_email = parameters.get('email_address')
-            user_time = parameters.get('contact_time')
+            
+            user_time_dict = parameters.get('contact_time', {})
+            # Format the time as a human-readable string (e.g., "16:00")
+            user_time = f"{int(user_time_dict.get('hours', 0))}:{int(user_time_dict.get('minutes', 0)):02d}"
 
             if db is not None:
                 try:
