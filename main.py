@@ -1,5 +1,3 @@
-# webhook.py
-
 from flask import Flask, request, jsonify
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -33,85 +31,63 @@ except ValueError:
         logging.error(f"Error initializing Firebase: {e}")
         logging.warning("Continuing without database connection. Using mock data.")
 
-# This is the endpoint that Dialogflow will call.
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    """
-    Handles a POST request from a Dialogflow CX agent.
-    Parses the request and returns a fulfillment response.
-    """
-    # Get the JSON request body
+    """Handles a POST request from a Dialogflow CX agent."""
     req = request.get_json(silent=True, force=True)
-    
-    # Initialize a default response.
+
+    # Default fallback response
     fulfillment_response = {
         "fulfillmentResponse": {
             "messages": [
-                {
-                    "text": {
-                        "text": [
-                            "I'm sorry, I didn't understand that. Could you please rephrase?"
-                        ]
-                    }
-                }
+                {"text": {"text": ["I'm sorry, I didn't understand that. Could you please rephrase?"]}}
             ]
         }
     }
 
     try:
-        # Extract the intent display name from the request
-        intent_display_name = req['intentInfo']['displayName']
+        # Extract intent (if present) and session parameters
+        intent_display_name = req.get("intentInfo", {}).get("displayName")
+        parameters = req.get("sessionInfo", {}).get("parameters", {})
 
-        # Check if the intent is "PricingMembershipIntent"
+        # --- PricingMembershipIntent ---
         if intent_display_name == 'PricingMembershipIntent':
-            # This is the text message containing the card details
             card_text_message = {
                 "text": {
                     "text": [
-                        "Membership & Pricing\n\nChoose the plan that's right for you.\n\nWe offer a variety of flexible membership options. Our current special is 50% off a 12-month membership until 2026! Our most popular plan includes unlimited access to all facilities and classes."
+                        "Membership & Pricing\n\nChoose the plan that's right for you.\n\n"
+                        "We offer a variety of flexible membership options. "
+                        "Our current special is 50% off a 12-month membership until 2026! "
+                        "Our most popular plan includes unlimited access to all facilities and classes."
                     ]
                 }
             }
-
-            # This is the chips payload
             chips_payload = {
                 "richContent": [
                     [
                         {
                             "type": "chips",
                             "options": [
-                                {
-                                    "text": "View Pricing Details"
-                                },
-                                {
-                                    "text": "Get a Quote"
-                                }
+                                {"text": "View Pricing Details"},
+                                {"text": "Get a Quote"}
                             ]
                         }
                     ]
                 ]
             }
-
-            # Build the fulfillment response with both messages
             fulfillment_response = {
                 "fulfillmentResponse": {
-                    "messages": [
-                        card_text_message,
-                        {"payload": chips_payload}
-                    ]
+                    "messages": [card_text_message, {"payload": chips_payload}]
                 }
             }
 
+        # --- ViewPricingIntent ---
         elif intent_display_name == 'ViewPricingIntent':
-            # This is the text message containing the card details
-            
             if db is not None:
                 doc_ref = db.collection('gyms').document('covent-garden-fitness-wellbeing-gym')
                 doc = doc_ref.get()
-
                 if doc.exists:
                     data = doc.to_dict()
-                    
                     anytime_prices = data.get('membership', {}).get('anytime', {})
                     twelve_month = anytime_prices.get('12MonthCommitment', {})
                     one_month_rolling = anytime_prices.get('1MonthRolling', {})
@@ -119,258 +95,124 @@ def webhook():
 
                     pricing_info = (
                         f"Pricing Details for {data.get('name', 'this gym')}\n\n"
-                        f"Our flexible plans are designed to fit your lifestyle.\n\n"
-                        f"1. 12-Month Commitment Plan\n"
+                        "Our flexible plans are designed to fit your lifestyle.\n\n"
+                        "1. 12-Month Commitment Plan\n"
                         f"   - Commitment: {twelve_month.get('commitment', 'N/A')}\n"
                         f"   - Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('discountPrice', 'N/A')} per {twelve_month.get('period', 'month')}\n"
                         f"   - Original Price: {twelve_month.get('currency', 'GBP')} {twelve_month.get('originalPrice', 'N/A')}\n"
                     )
-                    
                     if promotion.get('active'):
                         pricing_info += f"   - Promotion: {promotion.get('description', 'N/A')} ({promotion.get('condition', 'N/A')})\n\n"
                     else:
                         pricing_info += "\n"
 
                     pricing_info += (
-                        f"2. 1-Month Rolling Plan\n"
+                        "2. 1-Month Rolling Plan\n"
                         f"   - Commitment: {one_month_rolling.get('commitment', 'N/A')}\n"
                         f"   - Price: {one_month_rolling.get('currency', 'GBP')} {one_month_rolling.get('price', 'N/A')} per {one_month_rolling.get('period', 'month')}\n\n"
                     )
-                    
-                    card_text_message = {
-                        "text": {
-                            "text": [
-                                pricing_info
-                            ]
-                        }
-                    }
+                    card_text_message = {"text": {"text": [pricing_info]}}
                 else:
-                    card_text_message = {
-                        "text": {
-                            "text": [
-                                "Sorry, I could not find pricing details for this gym."
-                            ]
-                        }
-                    }
+                    card_text_message = {"text": {"text": ["Sorry, I could not find pricing details for this gym."]}}
             else:
-                card_text_message = {
-                    "text": {
-                        "text": [
-                            "Sorry, the database is not connected. I cannot provide pricing details at this time."
-                        ]
-                    }
-                }
-            
-            # This is the chips payload
+                card_text_message = {"text": {"text": ["Sorry, the database is not connected. I cannot provide pricing details at this time."]}}
+
             chips_payload = {
                 "richContent": [
                     [
                         {
                             "type": "chips",
                             "options": [
-                                {
-                                    "text": "Get a Quote"
-                                },
-                                {
-                                    "text": "Join now"
-                                }
+                                {"text": "Get a Quote"},
+                                {"text": "Join now"}
                             ]
                         }
                     ]
                 ]
             }
+            fulfillment_response = {"fulfillmentResponse": {"messages": [card_text_message, {"payload": chips_payload}]}}
 
-            # Build the fulfillment response with both messages
-            fulfillment_response = {
-                "fulfillmentResponse": {
-                    "messages": [
-                        card_text_message,
-                        {"payload": chips_payload}
-                    ]
-                }
-            }
-        
+        # --- JoinNowIntent ---
         elif intent_display_name == 'JoinNowIntent':
             if db is not None:
                 doc_ref = db.collection('gyms').document('covent-garden-fitness-wellbeing-gym')
                 doc = doc_ref.get()
-                
                 if doc.exists:
                     data = doc.to_dict()
-                    
                     anytime_prices = data.get('membership', {}).get('anytime', {})
                     twelve_month = anytime_prices.get('12MonthCommitment', {})
-                    
+
                     activation_fee = 29.00
                     monthly_remainder = 31.85
                     today_total = activation_fee + monthly_remainder
 
                     today_date = datetime.date.today()
-                    
-                    today_day = today_date.strftime("%#d" if os.name == 'nt' else "%-d") # To remove leading zero on day
+                    today_day = today_date.strftime("%#d" if os.name == 'nt' else "%-d")
                     today_month = today_date.strftime("%B")
                     next_month = (today_date.replace(day=28) + datetime.timedelta(days=4)).strftime("%B")
 
                     join_details_text = (
                         f"We've defaulted the start date to the first available date you can join this gym:\n"
                         f"{today_day} {today_month}\n\n"
-                        f"Activation Fee:\n"
-                        f"£{activation_fee:.2f}\n"
-                        f"For the remainder of this month:\n"
-                        f"£{monthly_remainder:.2f}\n"
-                        f"Monthly direct debit(Starting 1st {next_month} 2025)\n"
+                        f"Activation Fee:\n£{activation_fee:.2f}\n"
+                        f"For the remainder of this month:\n£{monthly_remainder:.2f}\n"
+                        f"Monthly direct debit (Starting 1st {next_month} 2025)\n"
                         f"£{twelve_month.get('originalPrice', 'N/A'):.2f}\n"
                         f"£{twelve_month.get('discountPrice', 'N/A'):.2f}\n"
                         f"-50% promotional discount\n"
-                        f"(Just £{twelve_month.get('discountPrice', 'N/A'):.2f} per month for 3 months, then "
-                        f"£{twelve_month.get('originalPrice', 'N/A'):.2f} per month from 1 January 2026)\n"
-                        f"To pay today:\n"
-                        f"This one-off upfront charge allows you to start your membership before your Direct Debit payments begin on 1st {next_month} 2025.\n"
-                        f"£{today_total:.2f}"
+                        f"(Just £{twelve_month.get('discountPrice', 'N/A'):.2f} per month for 3 months, "
+                        f"then £{twelve_month.get('originalPrice', 'N/A'):.2f} per month from 1 January 2026)\n"
+                        f"To pay today:\n£{today_total:.2f}"
                     )
-                    
-                    card_text_message = {
-                        "text": {
-                            "text": [
-                                join_details_text
-                            ]
-                        }
-                    }
-                    
-                    fulfillment_response = {
-                        "fulfillmentResponse": {
-                            "messages": [
-                                card_text_message
-                            ]
-                        }
-                    }
+                    card_text_message = {"text": {"text": [join_details_text]}}
+                    fulfillment_response = {"fulfillmentResponse": {"messages": [card_text_message]}}
                 else:
-                    fulfillment_response = {
-                        "fulfillmentResponse": {
-                            "messages": [
-                                {
-                                    "text": {
-                                        "text": [
-                                            "Sorry, I could not find details to join this gym."
-                                        ]
-                                    }
-                                }
-                            ]
-                        }
-                    }
+                    fulfillment_response = {"fulfillmentResponse": {"messages": [{"text": {"text": ["Sorry, I could not find details to join this gym."]}}]}}
             else:
-                fulfillment_response = {
-                    "fulfillmentResponse": {
-                        "messages": [
-                            {
-                                "text": {
-                                    "text": [
-                                        "Sorry, the database is not connected. I cannot provide details to join at this time."
-                                    ]
-                                }
-                            }
-                        ]
-                    }
-                }
+                fulfillment_response = {"fulfillmentResponse": {"messages": [{"text": {"text": ["Sorry, the database is not connected. I cannot provide details to join at this time."]}}]}}
 
+        # --- GetQuoteIntent ---
         elif intent_display_name == 'GetQuoteIntent':
-            # The simple text response for the "Get a Quote" intent.
             fulfillment_response = {
                 "fulfillmentResponse": {
                     "messages": [
-                        {
-                            "text": {
-                                "text": [
-                                    "To get a personalized quote, please tell me your full name, email address, and a good time for a team member to contact you. Our team will be in touch within 24 hours to provide you with a tailored quote."
-                                ]
-                            }
-                        }
+                        {"text": {"text": ["To get a personalized quote, please tell me your full name, email address, and a good time for a team member to contact you. Our team will be in touch within 24 hours to provide you with a tailored quote."]}}
                     ]
                 }
             }
-        
-        elif intent_display_name == 'SubmitQuoteFormIntent':
-            # Get parameters from the Dialogflow request
-            parameters = req.get('sessionInfo', {}).get('parameters', {})
-            
+
+        # --- SubmitQuoteFormIntent OR Form FINAL handling ---
+        elif intent_display_name == 'SubmitQuoteFormIntent' or (
+            parameters.get("name") and parameters.get("email_address") and parameters.get("contact_time")
+        ):
             user_name = parameters.get('name')
             user_email = parameters.get('email_address')
             user_time = parameters.get('contact_time')
 
             if db is not None:
                 try:
-                    # Get a reference to the Firestore quotes collection
-                    quotes_ref = db.collection('quotes')
-                    
-                    # Add a new document with the user's details and a timestamp
-                    quotes_ref.add({
+                    db.collection('quotes').add({
                         'name': user_name,
                         'email': user_email,
                         'contact_time': user_time,
                         'submission_timestamp': datetime.datetime.now()
                     })
-                    
-                    # Confirmation message for the user
                     confirmation_message = (
                         f"Thank you, {user_name}! We have received your request.\n"
                         f"A team member will be in touch with you at {user_time} at {user_email} to provide a tailored quote.\n"
                         f"We look forward to speaking with you!"
                     )
-                    
-                    fulfillment_response = {
-                        "fulfillmentResponse": {
-                            "messages": [
-                                {
-                                    "text": {
-                                        "text": [
-                                            confirmation_message
-                                        ]
-                                    }
-                                }
-                            ]
-                        }
-                    }
+                    fulfillment_response = {"fulfillmentResponse": {"messages": [{"text": {"text": [confirmation_message]}}]}}
                 except Exception as e:
-                    # Handle errors if the database write fails
                     logging.error(f"Error saving quote to Firestore: {e}")
-                    fulfillment_response = {
-                        "fulfillmentResponse": {
-                            "messages": [
-                                {
-                                    "text": {
-                                        "text": [
-                                            "Sorry, I encountered an issue while saving your information. Please try again later."
-                                        ]
-                                    }
-                                }
-                            ]
-                        }
-                    }
+                    fulfillment_response = {"fulfillmentResponse": {"messages": [{"text": {"text": ["Sorry, I encountered an issue while saving your information. Please try again later."]}}]}}
             else:
-                fulfillment_response = {
-                    "fulfillmentResponse": {
-                        "messages": [
-                            {
-                                "text": {
-                                    "text": [
-                                        "Sorry, the database is not connected. I cannot save your information at this time."
-                                    ]
-                                }
-                            }
-                        ]
-                    }
-                }
-        
-    except KeyError as e:
-        # Log the error if the intent info is missing
-        print(f"Error: Missing key in request JSON - {e}")
-    except Exception as e:
-        # Log any other errors
-        print(f"An error occurred: {e}")
+                fulfillment_response = {"fulfillmentResponse": {"messages": [{"text": {"text": ["Sorry, the database is not connected. I cannot save your information at this time."]}}]}}
 
-    # Return the final JSON response to Dialogflow
+    except Exception as e:
+        logging.error(f"Webhook error: {e}")
+
     return jsonify(fulfillment_response)
 
 if __name__ == '__main__':
-    # Run the Flask app on localhost, port 5000
     app.run(debug=True, host='0.0.0.0', port=5000)
