@@ -54,8 +54,8 @@ def webhook():
                 {
                     "type": "chips",
                     "options": [
-                        {"text": "Feedback"},
-                        {"text": "Recommendation"}
+                        {"text": "Book a Tour"},
+                        {"text": "Pricing and Membership"}
                     ]
                 }
             ]
